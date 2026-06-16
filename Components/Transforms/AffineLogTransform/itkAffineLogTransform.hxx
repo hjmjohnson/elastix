@@ -18,7 +18,20 @@
 #ifndef itkAffineLogTransform_hxx
 #define itkAffineLogTransform_hxx
 
-#include <vnl/vnl_matrix_exp.h>
+// itk::Math::MatrixExponential exists in ITK >= 6 (ITK#6454); ITK 5.4.x lacks it, so fall back to vnl_matrix_exp.
+#ifndef ELX_HAS_ITK_MATRIX_EXPONENTIAL
+#  if __has_include("itkMatrixExponential.h")
+#    define ELX_HAS_ITK_MATRIX_EXPONENTIAL 1
+#  else
+#    define ELX_HAS_ITK_MATRIX_EXPONENTIAL 0
+#  endif
+#endif
+
+#if ELX_HAS_ITK_MATRIX_EXPONENTIAL
+#  include "itkMatrixExponential.h"
+#else
+#  include <vnl/vnl_matrix_exp.h>
+#endif
 #include "itkMath.h"
 #include "itkAffineLogTransform.h"
 
@@ -83,7 +96,11 @@ AffineLogTransform<TScalarType, Dimension>::SetParameters(const ParametersType &
     }
   }
 
+#if ELX_HAS_ITK_MATRIX_EXPONENTIAL
+  exponentMatrix = itk::Math::MatrixExponential(this->m_MatrixLogDomain);
+#else
   exponentMatrix = vnl_matrix_exp(this->m_MatrixLogDomain.GetVnlMatrix());
+#endif
 
   this->PrecomputeJacobianOfSpatialJacobian();
 
@@ -233,7 +250,11 @@ AffineLogTransform<TScalarType, Dimension>::PrecomputeJacobianOfSpatialJacobian(
           A_bar(k, l) = dA(k, (l - d));
         }
       }
+#if ELX_HAS_ITK_MATRIX_EXPONENTIAL
+      B_bar = itk::Math::MatrixExponential(A_bar);
+#else
       B_bar = vnl_matrix_exp(A_bar);
+#endif
       for (unsigned int k = 0; k < d; ++k)
       {
         for (unsigned int l = d; l < 2 * d; ++l)
